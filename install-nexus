@@ -1,0 +1,72 @@
+#!/bin/bash
+
+set -e
+
+# Menampilkan ASCII Art untuk "Saandy"
+echo "
+  ██████ ▄▄▄     ▄▄▄      ███▄    █▓█████▓██   ██▓
+▒██    ▒▒████▄  ▒████▄    ██ ▀█   █▒██▀ ██▒██  ██▒
+░ ▓██▄  ▒██  ▀█▄▒██  ▀█▄ ▓██  ▀█ ██░██   █▌▒██ ██░
+  ▒   ██░██▄▄▄▄█░██▄▄▄▄██▓██▒  ▐▌██░▓█▄   ▌░ ▐██▓░
+▒██████▒▒▓█   ▓██▓█   ▓██▒██░   ▓██░▒████▓ ░ ██▒▓░
+▒ ▒▓▒ ▒ ░▒▒   ▓▒█▒▒   ▓▒█░ ▒░   ▒ ▒ ▒▒▓  ▒  ██▒▒▒ 
+░ ░▒  ░ ░ ▒   ▒▒ ░▒   ▒▒ ░ ░░   ░ ▒░░ ▒  ▒▓██ ░▒░ 
+░  ░  ░   ░   ▒   ░   ▒     ░   ░ ░ ░ ░  ░▒ ▒ ░░  
+      ░       ░  ░    ░  ░        ░   ░   ░ ░     
+                                    ░     ░ ░     
+"
+
+# Minta Node ID dari pengguna
+read -p "Masukkan NODE ID Anda: " NODE_ID
+
+if [[ -z "$NODE_ID" ]]; then
+    echo "❌ NODE ID tidak boleh kosong. Silakan jalankan ulang dan isi dengan benar."
+    exit 1
+fi
+
+# Perbarui dan instal dependensi
+echo "📦 Memperbarui sistem dan menginstal dependensi..."
+sudo apt update && sudo apt upgrade -y
+sudo apt install protobuf-compiler build-essential pkg-config libssl-dev curl git -y
+
+# Install Rust
+echo "🦀 Menginstal Rust..."
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+
+# Clone dan build Nexus CLI
+echo "📥 Meng-clone dan membangun Nexus CLI..."
+git clone https://github.com/nexus-xyz/nexus-cli
+cd nexus-cli/clients/cli
+cargo build --release
+cd ~
+
+# Buat systemd service
+echo "⚙️ Membuat systemd service untuk Nexus..."
+SERVICE_FILE=/etc/systemd/system/nexus.service
+sudo tee $SERVICE_FILE > /dev/null <<EOF
+[Unit]
+Description="Nexus Proving"
+After=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+ExecStart=$HOME/nexus-cli/clients/cli/target/release/nexus-network start --node-id $NODE_ID --headless
+Restart=always
+RestartSec=2
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Aktifkan dan jalankan layanan
+echo "🚀 Menjalankan layanan Nexus..."
+sudo systemctl daemon-reload
+sudo systemctl enable nexus
+sudo systemctl start nexus
+
+# Tampilkan log
+echo "📄 Menampilkan log Nexus. Tekan Ctrl+C untuk keluar."
+journalctl -fu nexus -o cat
