@@ -6,4 +6,7 @@ curl -sSfL https://raw.githubusercontent.com/KaelVNode/NexusI-III/main/install-n
 ```
 # Tampilkan log
 echo "📄 Menampilkan log Nexus. Tekan Ctrl+C untuk keluar."
+
+```
 journalctl -fu nexus -o cat
+```
